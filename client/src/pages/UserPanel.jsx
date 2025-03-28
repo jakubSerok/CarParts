@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SidebarUser from "../components/user/SidebarUser";
 import Test from "../components/user/Test";
+import AddProduct from "../components/user/AddProduct";
 
 const UserPanel = () => {
   const [activeComponent, setActiveComponent] = useState("Profil");
@@ -10,8 +11,8 @@ const UserPanel = () => {
     console.log("Active Component:", activeComponent); // Debug log
 
     switch (activeComponent) {
-      case "Profil":
-        return <Test />;
+      case "Wystaw Produkty":
+        return <AddProduct />;
       case "Kalendarz":
         return <Test />;
       case "Karnety":
@@ -38,7 +39,10 @@ const UserPanel = () => {
       />
 
       {/* Main content area */}
-      <div className="flex-1  bg-gray-100">{renderComponent()}</div>
+      <div className="flex-1  bg-gray-100">
+        
+        {renderComponent()}
+      </div>
     </div>
   );
 };
