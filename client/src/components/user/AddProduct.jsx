@@ -1,125 +1,285 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const AddProduct = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const [frazaWyszukiwania, setFrazaWyszukiwania] = useState('');
+  const [wynikiWyszukiwania, setWynikiWyszukiwania] = useState([]);
+  const [ladowanie, setLadowanie] = useState(false);
+  const [blad, setBlad] = useState(null);
+  const [wybranyProdukt, setWybranyProdukt] = useState(null);
+  const [edycja, setEdycja] = useState(false);
+  const [daneProduktu, setDaneProduktu] = useState({
+    tytul: '',
+    cena: '',
+    ilosc: '',
+    opis: '',
+    zdjecia: []
+  });
+  const [statusWysylki, setStatusWysylki] = useState(null);
+  const [edytujOpis, setEdytujOpis] = useState(false);
 
-  const handleSearch = async (e) => {
+  // Funkcja do wyświetlania pełnej struktury produktu w konsoli
+  const debugujProdukt = (produkt) => {
+    console.log('Pełna struktura produktu:', JSON.parse(JSON.stringify(produkt)));
+    return produkt;
+  };
+
+  const parseDescription = (description) => {
+    if (!description || !description.sections) return '';
+    return description.sections
+      .map(section => 
+        section.items
+          .filter(item => item.type === 'TEXT')
+          .map(item => item.content)
+          .join('')
+      )
+      .join('');
+  };
+
+  const szukajProduktow = async (e) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    if (!frazaWyszukiwania.trim()) return;
 
-    setIsLoading(true);
-    setError(null);
+    setLadowanie(true);
+    setBlad(null);
+    setWynikiWyszukiwania([]);
 
     try {
-      await delay(1000);
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/search`, {
-        params: { phrase: searchQuery }
+      const odpowiedz = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/search`, {
+        params: { phrase: frazaWyszukiwania }
       });
-      // Set searchResults to the products array from the response
-      setSearchResults(response.data.products || []);
-      console.log(response.data.products);
+      
+      if (odpowiedz.data?.products) {
+        if (odpowiedz.data.products.length > 0) {
+          debugujProdukt(odpowiedz.data.products[0]);
+        }
+        setWynikiWyszukiwania(odpowiedz.data.products);
+      } else {
+        setBlad('Nie znaleziono produktów lub nieprawidłowa struktura odpowiedzi');
+      }
     } catch (err) {
-      setError('Failed to fetch products. Please try again.');
-      console.error('Search error:', err);
+      setBlad(`Błąd podczas wyszukiwania produktów: ${err.message}`);
+      console.error('Błąd wyszukiwania:', err.response?.data || err.message);
     } finally {
-      setIsLoading(false);
+      setLadowanie(false);
     }
   };
 
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setError(null);
+  const wyczyscWyszukiwanie = () => {
+    setFrazaWyszukiwania('');
+    setWynikiWyszukiwania([]);
+    setBlad(null);
   };
 
-  const handleSelectProduct = (product) => {
-    setSelectedProduct(product);
-    setSearchResults([]);
-    setSearchQuery('');
+  const wybierzProdukt = (produkt) => {
+    setWybranyProdukt(produkt);
+    setDaneProduktu({
+      tytul: produkt.name || '',
+      cena: produkt.price?.amount || '',
+      ilosc: 1,
+      opis: parseDescription(produkt.description),
+      zdjecia: produkt.images || []
+    });
+    setEdycja(true);
+    setWynikiWyszukiwania([]);
+    setFrazaWyszukiwania('');
   };
 
-  const handleAddProduct = () => {
-    if (!selectedProduct) return;
+  const zmienDane = (e) => {
+    const { name, value } = e.target;
+    setDaneProduktu(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleImageUpload = (e, index) => {
+    const file = e.target.files[0];
+    if (file.size > 5 * 1024 * 1024) {
+      setBlad('Obraz jest zbyt duży (max 5MB)');
+      return;
+    }
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const noweZdjecia = [...daneProduktu.zdjecia];
+        noweZdjecia[index].file = file;
+        noweZdjecia[index].url = e.target.result;
+        setDaneProduktu(prev => ({
+          ...prev,
+          zdjecia: noweZdjecia
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const zmienZdjecie = (e, index) => {
+    if (e.target.files) {
+      handleImageUpload(e, index);
+    } else {
+      const noweZdjecia = [...daneProduktu.zdjecia];
+      noweZdjecia[index].url = e.target.value;
+      setDaneProduktu(prev => ({
+        ...prev,
+        zdjecia: noweZdjecia
+      }));
+    }
+  };
+
+  const dodajZdjecie = () => {
+    setDaneProduktu(prev => ({
+      ...prev,
+      zdjecia: [...prev.zdjecia, { url: '' }]
+    }));
+  };
+
+  const usunZdjecie = (index) => {
+    const noweZdjecia = daneProduktu.zdjecia.filter((_, i) => i !== index);
+    setDaneProduktu(prev => ({
+      ...prev,
+      zdjecia: noweZdjecia
+    }));
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleImageUpload({ target: { files: [file] } }, index);
+  };
+
+  const anulujEdycje = () => {
+    setEdycja(false);
+    setWybranyProdukt(null);
+    setStatusWysylki(null);
+  };
+
+  const wystawProdukt = async () => {
+    if (!daneProduktu.tytul || !daneProduktu.ilosc) {
+      setBlad('Tytuł i ilość są wymagane');
+      return;
+    }
+
+    setLadowanie(true);
+    setBlad(null);
+
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/products`, {
+        tytul: daneProduktu.tytul,
+        cena: daneProduktu.cena,
+        ilosc: daneProduktu.ilosc,
+        opis: daneProduktu.opis,
+        zdjecia: daneProduktu.zdjecia.map(z => z.url),
+        wybranyProdukt: wybranyProdukt
+      });
+
+      setStatusWysylki({
+        sukces: true,
+        wiadomosc: 'Produkt został pomyślnie wystawiony!'
+      });
+    } catch (err) {
+      setStatusWysylki({
+        sukces: false,
+        wiadomosc: `Błąd podczas wystawiania produktu: ${err.response?.data?.error || err.message}`
+      });
+      console.error('Błąd wysyłania:', err);
+    } finally {
+      setLadowanie(false);
+    }
+  };
+
+  const wyswietlKategorie = (kategoria) => {
+    if (!kategoria) return 'Brak kategorii';
     
-    console.log('Adding product:', selectedProduct);
-    alert(`Product "${selectedProduct.name}" added successfully!`);
-    setSelectedProduct(null);
+    if (Array.isArray(kategoria.path) && kategoria.path.every(item => typeof item === 'string')) {
+      return kategoria.path.join(' > ');
+    }
+    
+    if (Array.isArray(kategoria.path) && kategoria.path.every(item => item && item.name)) {
+      return kategoria.path.map(c => c.name).join(' > ');
+    }
+    
+    if (kategoria.name) {
+      return kategoria.name;
+    }
+    
+    console.warn('Nieznana struktura kategorii:', kategoria);
+    return 'Kategoria dostępna (sprawdź konsolę)';
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Product</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Dodaj nowy produkt</h2>
       
-      {/* Search Form */}
-      <form onSubmit={handleSearch} className="mb-6">
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for products..."
-            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="absolute right-3 text-gray-400 hover:text-gray-600"
-            >
-              &times; {/* Clear button */}
-            </button>
-          )}
-        </div>
-        <button
-          type="submit"
-          disabled={!searchQuery || isLoading}
-          className={`mt-3 w-full py-2 px-4 rounded-lg font-medium ${
-            !searchQuery || isLoading
-              ? 'bg-gray-300 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          } transition`}
-        >
-          {isLoading ? 'Searching...' : 'Search Products'}
-        </button>
-      </form>
+      {/* Formularz wyszukiwania - pokazuje się tylko gdy nie edytujemy */}
+      {!edycja && (
+        <form onSubmit={szukajProduktow} className="mb-6">
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={frazaWyszukiwania}
+              onChange={(e) => setFrazaWyszukiwania(e.target.value)}
+              placeholder="Wyszukaj produkty..."
+              className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            />
+            {frazaWyszukiwania && (
+              <button
+                type="button"
+                onClick={wyczyscWyszukiwanie}
+                className="absolute right-3 text-gray-400 hover:text-gray-600"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={!frazaWyszukiwania || ladowanie}
+            className={`mt-3 w-full py-2 px-4 rounded-lg font-medium ${
+              !frazaWyszukiwania || ladowanie
+                ? 'bg-gray-300 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            } transition`}
+          >
+            {ladowanie ? 'Wyszukiwanie...' : 'Szukaj produktów'}
+          </button>
+        </form>
+      )}
 
-      {/* Error Display */}
-      {error && (
+      {/* Wyświetlanie błędów */}
+      {blad && (
         <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-          <p>{error}</p>
+          <p>{blad}</p>
         </div>
       )}
 
-      {/* Search Results */}
-      {searchResults.length > 0 && (
+      {/* Wyniki wyszukiwania */}
+      {!edycja && wynikiWyszukiwania.length > 0 && (
         <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
-          <h3 className="bg-gray-100 px-4 py-2 font-medium text-gray-700">Znalezione Produkty</h3>
+          <h3 className="bg-gray-100 px-4 py-2 font-medium text-gray-700">Znalezione produkty</h3>
           <ul className="divide-y divide-gray-200">
-            {searchResults.map((product) => (
-              <li key={product.id} className="p-4 hover:bg-gray-50 cursor-pointer">
+            {wynikiWyszukiwania.map((produkt) => (
+              <li key={produkt.id} className="p-4 hover:bg-gray-50 cursor-pointer">
                 <div 
                   className="flex items-center justify-between"
-                  onClick={() => handleSelectProduct(product)}
+                  onClick={() => wybierzProdukt(produkt)}
                 >
                   <div className="flex items-center space-x-4">
                     <img 
-                      src={product.images[0]?.url || 'https://via.placeholder.com/50'} 
-                      alt={product.name}
+                      src={produkt.images?.[0]?.url || 'https://via.placeholder.com/50'} 
+                      alt={produkt.name}
                       className="w-12 h-12 object-cover rounded"
+                      onError={(e) => e.target.src = 'https://via.placeholder.com/50'}
                     />
                     <div>
-                      <h4 className="font-medium text-gray-800">{product.name}</h4>
-                      <p className="text-sm text-gray-500">{product.category?.path.join(' > ')}</p>
+                      <h4 className="font-medium text-gray-800">{produkt.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {wyswietlKategorie(produkt.category)}
+                      </p>
                     </div>
                   </div>
                   <span className="font-semibold text-blue-600">
-                    ${product.price}
+                    {produkt.price?.amount ? `${produkt.price.amount} zł` : 'Brak ceny'}
                   </span>
                 </div>
               </li>
@@ -127,33 +287,165 @@ const AddProduct = () => {
           </ul>
         </div>
       )}
-  
-      {/* Selected Product */}
-      {selectedProduct && (
-        <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded-lg">
-          <h3 className="font-medium text-green-800 mb-3">Produkt Wybrany</h3>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <img 
-                src={selectedProduct.images[0]?.url || 'https://via.placeholder.com/50'} 
-                alt={selectedProduct.name}
-                className="w-16 h-16 object-cover rounded"
+
+      {/* Panel edycji produktu */}
+      {edycja && (
+        <div className="mb-6 p-6 border border-blue-200 bg-blue-50 rounded-lg">
+          <h3 className="font-medium text-blue-800 mb-4 text-lg">Edytuj produkt przed wystawieniem</h3>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tytuł produktu</label>
+              <input
+                type="text"
+                name="tytul"
+                value={daneProduktu.tytul}
+                onChange={zmienDane}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
-              <div>
-                <h4 className="font-medium text-gray-800">{selectedProduct.name}</h4>
-                <p className="text-sm text-gray-500">{selectedProduct.category?.path.join(' > ')}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cena</label>
+              <input
+                type="number"
+                name="cena"
+                value={daneProduktu.cena}
+                onChange={zmienDane}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Wprowadź cenę"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ilość sztuk</label>
+              <input
+                type="number"
+                name="ilosc"
+                value={daneProduktu.ilosc}
+                onChange={zmienDane}
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-gray-700">Opis produktu</label>
+                <button
+                  type="button"
+                  onClick={() => setEdytujOpis(!edytujOpis)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  {edytujOpis ? 'Zobacz podgląd' : 'Edytuj opis'}
+                </button>
+              </div>
+              {edytujOpis ? (
+                <textarea
+                  name="opis"
+                  value={daneProduktu.opis}
+                  onChange={zmienDane}
+                  rows="8"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              ) : (
+                <div
+                  className="prose max-w-none p-4 border border-gray-300 rounded-md"
+                  dangerouslySetInnerHTML={{ __html: daneProduktu.opis }}
+                />
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zdjęcia produktu</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {daneProduktu.zdjecia.map((zdjecie, index) => (
+                  <div
+                    key={index}
+                    className="relative group border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors"
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => zmienZdjecie(e, index)}
+                      className="hidden"
+                      id={`file-input-${index}`}
+                    />
+                    <label
+                      htmlFor={`file-input-${index}`}
+                      className="cursor-pointer block w-full h-full"
+                    >
+                      {zdjecie.url ? (
+                        <img
+                          src={zdjecie.url}
+                          alt={`Preview ${index}`}
+                          className="w-full h-48 object-cover rounded-md"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                          <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <p className="text-sm text-center">Przeciągnij i upuść zdjęcie<br/>lub kliknij aby wybrać</p>
+                        </div>
+                      )}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => usunZdjecie(index)}
+                      className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <div
+                  className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors cursor-pointer"
+                  onClick={dodajZdjecie}
+                >
+                  <div className="text-center text-gray-400">
+                    <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <p className="text-sm mt-2">Dodaj kolejne zdjęcie</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <span className="font-semibold text-green-600">
-              ${selectedProduct.price}
-            </span>
           </div>
-          <button
-            onClick={handleAddProduct}
-            className="mt-4 w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition"
-          >
-            Add Product
-          </button>
+
+          {/* Status po wysłaniu */}
+          {statusWysylki && (
+            <div className={`mt-4 p-3 rounded-md ${
+              statusWysylki.sukces 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {statusWysylki.wiadomosc}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end space-x-3">
+            <button
+              onClick={anulujEdycje}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              Anuluj
+            </button>
+            <button
+              onClick={wystawProdukt}
+              disabled={ladowanie}
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                ladowanie ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {ladowanie ? 'Wysyłanie...' : 'Wystaw produkt'}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -3,6 +3,7 @@ const qs = require('querystring');
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 // Poprawiona konfiguracja axios - baseURL nie powinien zawierać '/auth/oauth/token'
 const allegroApi = axios.create({
@@ -39,20 +40,19 @@ const loadToken = () => {
 };
 
 const getAccessToken = async () => {
-  // W Allegro wymagane jest podanie nagłówka Authorization z Basic Auth
   const authString = Buffer.from(`${process.env.ALLEGRO_CLIENT_ID}:${process.env.ALLEGRO_CLIENT_SECRET}`).toString('base64');
 
   try {
-    // Używamy osobnego axios dla tokena, bo wymaga innych nagłówków
     const response = await axios.post(
-      'https://allegro.pl.allegrosandbox.pl/auth/oauth/token', // Pełny URL do token endpoint
+      'https://allegro.pl.allegrosandbox.pl/auth/oauth/token',
       qs.stringify({
-        grant_type: 'client_credentials'
+        grant_type: 'client_credentials',
+        scope: 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:images:write'
       }),
       {
         headers: {
           'Authorization': `Basic ${authString}`,
-          'Content-Type': 'application/x-www-form-urlencoded' // Tylko dla tokena
+          'Content-Type': 'application/x-www-form-urlencoded'
         }
       }
     );
@@ -62,8 +62,8 @@ const getAccessToken = async () => {
     }
 
     const tokenData = {
-      access_token: response.data.access_token, // Zmiana nazwy na zgodną z Allegro
-      expires_at: Date.now() + (response.data.expires_in * 1000 - 30000) // Odliczamy 30s marginesu
+      access_token: response.data.access_token,
+      expires_at: Date.now() + (response.data.expires_in * 1000 - 30000)
     };
     
     saveToken(tokenData);
@@ -71,6 +71,17 @@ const getAccessToken = async () => {
   } catch (error) {
     console.error('Error getting access token:', error.response?.data || error.message);
     throw error;
+  }
+};
+
+const decodeToken = (token) => {
+  try {
+    const decoded = jwt.decode(token);
+    console.log('Decoded Token Payload:', decoded);
+    return decoded;
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
   }
 };
 
@@ -84,6 +95,7 @@ const getValidToken = async () => {
   }
   
   console.log('Using existing token');
+  decodeToken(tokenData.access_token);
   return tokenData.access_token;
 };
 
