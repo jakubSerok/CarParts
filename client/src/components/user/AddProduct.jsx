@@ -8,6 +8,7 @@ const AddProduct = () => {
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -17,12 +18,12 @@ const AddProduct = () => {
 
     try {
       await delay(1000);
-      // Tutaj podłącz swój endpoint backendowy
       const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/search`, {
         params: { phrase: searchQuery }
       });
-      setSearchResults(response.data);
-      console.log(response.data);
+      // Set searchResults to the products array from the response
+      setSearchResults(response.data.products || []);
+      console.log(response.data.products);
     } catch (err) {
       setError('Failed to fetch products. Please try again.');
       console.error('Search error:', err);
@@ -46,7 +47,6 @@ const AddProduct = () => {
   const handleAddProduct = () => {
     if (!selectedProduct) return;
     
-    // Tutaj dodaj logikę dodawania produktu
     console.log('Adding product:', selectedProduct);
     alert(`Product "${selectedProduct.name}" added successfully!`);
     setSelectedProduct(null);
@@ -56,11 +56,9 @@ const AddProduct = () => {
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Product</h2>
       
-      {/* Formularz wyszukiwania */}
+      {/* Search Form */}
       <form onSubmit={handleSearch} className="mb-6">
         <div className="relative flex items-center">
-          <div className="absolute left-3 text-gray-400">
-          </div>
           <input
             type="text"
             value={searchQuery}
@@ -74,6 +72,7 @@ const AddProduct = () => {
               onClick={handleClearSearch}
               className="absolute right-3 text-gray-400 hover:text-gray-600"
             >
+              &times; {/* Clear button */}
             </button>
           )}
         </div>
@@ -90,17 +89,17 @@ const AddProduct = () => {
         </button>
       </form>
 
-      {/* Wyświetlanie błędów */}
+      {/* Error Display */}
       {error && (
         <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
           <p>{error}</p>
         </div>
       )}
 
-      {/* Wyniki wyszukiwania */}
+      {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
-          <h3 className="bg-gray-100 px-4 py-2 font-medium text-gray-700">Search Results</h3>
+          <h3 className="bg-gray-100 px-4 py-2 font-medium text-gray-700">Znalezione Produkty</h3>
           <ul className="divide-y divide-gray-200">
             {searchResults.map((product) => (
               <li key={product.id} className="p-4 hover:bg-gray-50 cursor-pointer">
@@ -110,13 +109,13 @@ const AddProduct = () => {
                 >
                   <div className="flex items-center space-x-4">
                     <img 
-                      src={product.image || 'https://via.placeholder.com/50'} 
+                      src={product.images[0]?.url || 'https://via.placeholder.com/50'} 
                       alt={product.name}
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div>
                       <h4 className="font-medium text-gray-800">{product.name}</h4>
-                      <p className="text-sm text-gray-500">{product.category}</p>
+                      <p className="text-sm text-gray-500">{product.category?.path.join(' > ')}</p>
                     </div>
                   </div>
                   <span className="font-semibold text-blue-600">
@@ -128,21 +127,21 @@ const AddProduct = () => {
           </ul>
         </div>
       )}
-
-      {/* Wybrany produkt */}
+  
+      {/* Selected Product */}
       {selectedProduct && (
         <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded-lg">
-          <h3 className="font-medium text-green-800 mb-3">Selected Product</h3>
+          <h3 className="font-medium text-green-800 mb-3">Produkt Wybrany</h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <img 
-                src={selectedProduct.image || 'https://via.placeholder.com/50'} 
+                src={selectedProduct.images[0]?.url || 'https://via.placeholder.com/50'} 
                 alt={selectedProduct.name}
                 className="w-16 h-16 object-cover rounded"
               />
               <div>
                 <h4 className="font-medium text-gray-800">{selectedProduct.name}</h4>
-                <p className="text-sm text-gray-500">{selectedProduct.category}</p>
+                <p className="text-sm text-gray-500">{selectedProduct.category?.path.join(' > ')}</p>
               </div>
             </div>
             <span className="font-semibold text-green-600">
