@@ -44,7 +44,7 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
 
         <ul className="flex-1 p-4 space-y-2">
           {[
-            { name: "Profil", icon: <FaHome /> },
+            { name: "Dodaj Produkt", icon: <FaHome /> },
             { name: "Wystaw Produkty", icon: <FaCalendarAlt /> },
             { name: "Karnety", icon: <FaUsers /> },
             { name: "Treningi", icon: <FaCalendarAlt /> },

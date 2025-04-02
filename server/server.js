@@ -2,7 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const userRoutes = require('./routes/userRouts');
-const allegroRoutes = require('./routes/allegroRoutes');
+const allegroRoutes = require('./routes/allegoRouts');
 const connectDB = require('./config/db');
 
 const URL_FORONT = process.env.FRONTEND_URL;
@@ -34,7 +34,7 @@ connectDB();
 
 // Routes
 app.use("/api/user", userRoutes);
-app.use("/api/allegro", allegroRoutes);
+app.use('/api/allegro', allegroRoutes);
 
 app.get("/", (req, res) => {
     res.send("API WORK ON PORT " + port);

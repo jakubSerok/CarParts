@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SidebarAdmin from "../components/admin/SidebarAdmin";
 import Test from "../components/user/Test";
+import AddProduct from "../components/user/AddProduct";
 
 const AdminPanel = () => {
   const [activeComponent, setActiveComponent] = useState("Profil");
@@ -10,8 +11,8 @@ const AdminPanel = () => {
     console.log("Active Component:", activeComponent); // Debug log
 
     switch (activeComponent) {
-      case "Profil":
-        return <Test />;
+      case "Dodaj Produkt":
+        return <AddProduct />;
       case "Kalendarz":
         return <Test />;
       case "Karnety":
