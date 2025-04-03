@@ -47,7 +47,7 @@ const getAccessToken = async () => {
       'https://allegro.pl.allegrosandbox.pl/auth/oauth/token',
       qs.stringify({
         grant_type: 'client_credentials',
-        scope: 'allegro:api:sale:offers:read allegro:api:sale:offers:write'
+        scope: 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:orders:write allegro:api:orders:read'
       }),
       {
         headers: {
@@ -88,14 +88,25 @@ const decodeToken = (token) => {
 const getValidToken = async () => {
   const tokenData = loadToken();
   
-  // Sprawdzamy czy token istnieje i czy nie wygasł (z marginesem 30s)
+  // Check if token exists and is not expired (with 30s buffer)
   if (!tokenData || !tokenData.access_token || Date.now() >= tokenData.expires_at) {
     console.log('Token expired or not found, requesting new one');
-    return await getAccessToken();
+    try {
+      return await getAccessToken();
+    } catch (error) {
+      console.error('Failed to get new token:', error);
+      throw error;
+    }
   }
   
   console.log('Using existing token');
-  decodeToken(tokenData.access_token);
+  // Verify the token is still valid
+  const decoded = decodeToken(tokenData.access_token);
+  if (!decoded) {
+    console.log('Token invalid, requesting new one');
+    return await getAccessToken();
+  }
+  
   return tokenData.access_token;
 };
 

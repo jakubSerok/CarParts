@@ -80,10 +80,10 @@ const AddProduct = () => {
   const wybierzProdukt = async (produkt) => {
     try {
 
-      console.log(produkt.id)
+      
       const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers/${produkt.id}`);
       const offerDetails = response.data;
-
+      console.log(offerDetails);
       setWybranyProdukt(offerDetails);
       setProductDetails({
         name: offerDetails.name || '',
