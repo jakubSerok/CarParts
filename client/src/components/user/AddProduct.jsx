@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const AddProduct = () => {
   const [frazaWyszukiwania, setFrazaWyszukiwania] = useState('');
@@ -23,6 +24,37 @@ const AddProduct = () => {
   });
   const [statusWysylki, setStatusWysylki] = useState(null);
   const [edytujOpis, setEdytujOpis] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Sprawdź autoryzację przy załadowaniu komponentu
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/auth/status`);
+        setIsAuthenticated(response.data.authenticated);
+        
+        if (!response.data.authenticated) {
+          // Jeśli nie jest zalogowany, przekieruj do strony logowania
+          window.location.href = `${process.env.REACT_APP_BACKEND_URL}/api/allegro/auth`;
+        }
+      } catch (error) {
+        console.error('Błąd sprawdzania autoryzacji:', error);
+        setBlad('Błąd podczas sprawdzania autoryzacji');
+        setIsAuthenticated(false); // Ustaw na false w przypadku błędu
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Funkcja do rozpoczynania procesu logowania
+  const handleLogin = () => {
+    window.location.href = `${process.env.REACT_APP_BACKEND_URL}/api/allegro/auth`;
+  };
 
   // Funkcja do wyświetlania pełnej struktury produktu w konsoli
   const debugujProdukt = (produkt) => {
@@ -261,7 +293,22 @@ const AddProduct = () => {
     return 'Kategoria dostępna (sprawdź konsolę)';
   };
 
-
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">Dodaj nowy produkt</h2>
+        <div className="text-center py-10">
+          <p className="mb-4">Aby kontynuować, musisz zalogować się do Allegro</p>
+          <button
+            onClick={handleLogin}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Zaloguj przez Allegro
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
