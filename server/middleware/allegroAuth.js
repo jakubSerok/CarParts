@@ -47,7 +47,7 @@ const getAccessToken = async () => {
       'https://allegro.pl.allegrosandbox.pl/auth/oauth/token',
       qs.stringify({
         grant_type: 'client_credentials',
-        scope: 'allegro:api:sale:offers:read allegro:api:sale:offers:write allegro:api:sale:images:write'
+        scope: 'allegro:api:sale:offers:read allegro:api:sale:offers:write'
       }),
       {
         headers: {
@@ -77,7 +77,7 @@ const getAccessToken = async () => {
 const decodeToken = (token) => {
   try {
     const decoded = jwt.decode(token);
-    console.log('Decoded Token Payload:', decoded);
+  
     return decoded;
   } catch (error) {
     console.error('Error decoding token:', error);

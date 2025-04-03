@@ -8,12 +8,18 @@ const AddProduct = () => {
   const [blad, setBlad] = useState(null);
   const [wybranyProdukt, setWybranyProdukt] = useState(null);
   const [edycja, setEdycja] = useState(false);
-  const [daneProduktu, setDaneProduktu] = useState({
-    tytul: '',
-    cena: '',
-    ilosc: '',
-    opis: '',
-    zdjecia: []
+  const [productDetails, setProductDetails] = useState({
+    name: '',
+    category: { id: '' },
+    parameters: [],
+    sellingMode: {
+      format: 'BUY_NOW',
+      price: { amount: '', currency: 'PLN' }
+    },
+    stock: { available: 1 },
+    description: { sections: [] },
+    images: [],
+    delivery: { shippingRates: { id: '' } }
   });
   const [statusWysylki, setStatusWysylki] = useState(null);
   const [edytujOpis, setEdytujOpis] = useState(false);
@@ -71,26 +77,48 @@ const AddProduct = () => {
     setBlad(null);
   };
 
-  const wybierzProdukt = (produkt) => {
-    setWybranyProdukt(produkt);
-    setDaneProduktu({
-      tytul: produkt.name || '',
-      cena: produkt.price?.amount || '',
-      ilosc: 1,
-      opis: parseDescription(produkt.description),
-      zdjecia: produkt.images || []
-    });
-    setEdycja(true);
-    setWynikiWyszukiwania([]);
-    setFrazaWyszukiwania('');
+  const wybierzProdukt = async (produkt) => {
+    try {
+
+      console.log(produkt.id)
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers/${produkt.id}`);
+      const offerDetails = response.data;
+
+      setWybranyProdukt(offerDetails);
+      setProductDetails({
+        name: offerDetails.name || '',
+        category: { id: offerDetails.category?.id || '' },
+        parameters: offerDetails.parameters || [],
+        sellingMode: {
+          format: 'BUY_NOW',
+          price: { amount: offerDetails.sellingMode?.price?.amount || '', currency: 'PLN' }
+        },
+        stock: { available: offerDetails.stock?.available || 1 },
+        description: offerDetails.description || { sections: [] },
+        images: offerDetails.images || [],
+        delivery: { shippingRates: { id: offerDetails.delivery?.shippingRates?.id || '' } }
+      });
+      setFrazaWyszukiwania('');
+      setEdycja(true);
+      setWynikiWyszukiwania([]);
+    } catch (error) {
+      setBlad(`Błąd podczas pobierania oferty: ${error.message}`);
+      console.error('Błąd pobierania oferty:', error);
+    }
   };
 
-  const zmienDane = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setDaneProduktu(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    const path = name.split('.');
+    setProductDetails(prev => {
+      const newState = { ...prev };
+      let current = newState;
+      for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i]];
+      }
+      current[path[path.length - 1]] = value;
+      return newState;
+    });
   };
 
   const handleImageUpload = (e, index) => {
@@ -102,12 +130,12 @@ const AddProduct = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const noweZdjecia = [...daneProduktu.zdjecia];
+        const noweZdjecia = [...productDetails.images];
         noweZdjecia[index].file = file;
         noweZdjecia[index].url = e.target.result;
-        setDaneProduktu(prev => ({
+        setProductDetails(prev => ({
           ...prev,
-          zdjecia: noweZdjecia
+          images: noweZdjecia
         }));
       };
       reader.readAsDataURL(file);
@@ -118,27 +146,27 @@ const AddProduct = () => {
     if (e.target.files) {
       handleImageUpload(e, index);
     } else {
-      const noweZdjecia = [...daneProduktu.zdjecia];
+      const noweZdjecia = [...productDetails.images];
       noweZdjecia[index].url = e.target.value;
-      setDaneProduktu(prev => ({
+      setProductDetails(prev => ({
         ...prev,
-        zdjecia: noweZdjecia
+        images: noweZdjecia
       }));
     }
   };
 
   const dodajZdjecie = () => {
-    setDaneProduktu(prev => ({
+    setProductDetails(prev => ({
       ...prev,
-      zdjecia: [...prev.zdjecia, { url: '' }]
+      images: [...prev.images, { url: '' }]
     }));
   };
 
   const usunZdjecie = (index) => {
-    const noweZdjecia = daneProduktu.zdjecia.filter((_, i) => i !== index);
-    setDaneProduktu(prev => ({
+    const noweZdjecia = productDetails.images.filter((_, i) => i !== index);
+    setProductDetails(prev => ({
       ...prev,
-      zdjecia: noweZdjecia
+      images: noweZdjecia
     }));
   };
 
@@ -155,8 +183,8 @@ const AddProduct = () => {
   };
 
   const wystawProdukt = async () => {
-    if (!daneProduktu.tytul || !daneProduktu.ilosc) {
-      setBlad('Tytuł i ilość są wymagane');
+    if (!productDetails.name || !productDetails.stock.available) {
+      setBlad('Nazwa i ilość są wymagane');
       return;
     }
 
@@ -164,15 +192,41 @@ const AddProduct = () => {
     setBlad(null);
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/products`, {
-        tytul: daneProduktu.tytul,
-        cena: daneProduktu.cena,
-        ilosc: daneProduktu.ilosc,
-        opis: daneProduktu.opis,
-        zdjecia: daneProduktu.zdjecia.map(z => z.url),
-        wybranyProdukt: wybranyProdukt
-      });
+      const formattedProduct = {
+        name: productDetails.name,
+        category: { id: productDetails.category.id },
+        parameters: productDetails.parameters,
+        sellingMode: {
+          format: 'BUY_NOW',
+          price: {
+            amount: productDetails.sellingMode.price.amount,
+            currency: 'PLN'
+          }
+        },
+        stock: { available: productDetails.stock.available },
+        description: {
+          sections: [{
+            items: [{
+              type: 'TEXT',
+              content: productDetails.description.sections[0]?.items[0]?.content || ''
+            }]
+          }]
+        },
+        images: productDetails.images.map(img => ({
+          url: img.url
+        })),
+        delivery: {
+          shippingRates: {
+            id: productDetails.delivery.shippingRates.id
+          }
+        }
+      };
 
+      console.log('Wysyłanie produktu:', formattedProduct);
+      console.log('Endpoint:', `${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`);
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`, formattedProduct);
+      console.log('Odpowiedź serwera:', response);
+      console.log('Produkt wystawiony:', response.data);
       setStatusWysylki({
         sukces: true,
         wiadomosc: 'Produkt został pomyślnie wystawiony!'
@@ -207,10 +261,14 @@ const AddProduct = () => {
     return 'Kategoria dostępna (sprawdź konsolę)';
   };
 
+
+
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Dodaj nowy produkt</h2>
-      
+
+   
+
       {/* Formularz wyszukiwania - pokazuje się tylko gdy nie edytujemy */}
       {!edycja && (
         <form onSubmit={szukajProduktow} className="mb-6">
@@ -295,13 +353,25 @@ const AddProduct = () => {
           
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tytuł produktu</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nazwa produktu</label>
               <input
                 type="text"
-                name="tytul"
-                value={daneProduktu.tytul}
-                onChange={zmienDane}
+                name="name"
+                value={productDetails.name}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kategoria</label>
+              <input
+                type="text"
+                name="category.id"
+                value={productDetails.category.id}
+                onChange={handleInputChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Wprowadź ID kategorii"
               />
             </div>
 
@@ -309,9 +379,9 @@ const AddProduct = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Cena</label>
               <input
                 type="number"
-                name="cena"
-                value={daneProduktu.cena}
-                onChange={zmienDane}
+                name="sellingMode.price.amount"
+                value={productDetails.sellingMode.price.amount}
+                onChange={handleInputChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Wprowadź cenę"
               />
@@ -321,9 +391,9 @@ const AddProduct = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Ilość sztuk</label>
               <input
                 type="number"
-                name="ilosc"
-                value={daneProduktu.ilosc}
-                onChange={zmienDane}
+                name="stock.available"
+                value={productDetails.stock.available}
+                onChange={handleInputChange}
                 min="1"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               />
@@ -342,16 +412,16 @@ const AddProduct = () => {
               </div>
               {edytujOpis ? (
                 <textarea
-                  name="opis"
-                  value={daneProduktu.opis}
-                  onChange={zmienDane}
+                  name="description"
+                  value={parseDescription(productDetails.description)}
+                  onChange={(e) => setProductDetails(prev => ({ ...prev, description: { sections: [{ items: [{ type: 'TEXT', content: e.target.value }] }] } }))}
                   rows="8"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               ) : (
                 <div
                   className="prose max-w-none p-4 border border-gray-300 rounded-md"
-                  dangerouslySetInnerHTML={{ __html: daneProduktu.opis }}
+                  dangerouslySetInnerHTML={{ __html: parseDescription(productDetails.description) }}
                 />
               )}
             </div>
@@ -359,7 +429,7 @@ const AddProduct = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Zdjęcia produktu</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {daneProduktu.zdjecia.map((zdjecie, index) => (
+                {productDetails.images.map((zdjecie, index) => (
                   <div
                     key={index}
                     className="relative group border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 transition-colors"

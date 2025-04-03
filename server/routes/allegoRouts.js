@@ -1,9 +1,10 @@
 const express = require('express');
-const { searchProducts, createProduct } = require('../controllers/allegroController');
+const { searchProducts, getProductOffer, createProductOffer } = require('../controllers/allegroController');
 
 const router = express.Router();
 
 router.get('/search', searchProducts);
-router.post('/products', createProduct);
+router.get('/product-offers/:offerId', getProductOffer);
+router.post('/product-offers', createProductOffer);
 
 module.exports = router;

@@ -32,89 +32,82 @@ const searchProducts = async (req, res) => {
     }
 };
 
-const uploadImage = async (imageUrl, accessToken) => {
-    try {
-      console.log('Attempting to upload image from URL:', imageUrl); // Debug URL
-      const response = await axios.post(`${process.env.ALLEGRO_UPLOAD_URL}/sale/images`, {
-        url: imageUrl
-      }, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/vnd.allegro.public.v1+json',
-          'Content-Type': 'application/vnd.allegro.public.v1+json'
-        }
-      });
-      console.log('Upload response:', response.data); // Debug odpowiedzi
-      return response.data;
-    } catch (error) {
-      console.error('Full upload error:', {
-        status: error.response?.status,
-        headers: error.response?.headers,
-        data: error.response?.data,
-        config: error.config
-      });
-      throw error;
-    }
-  };
-
-const createProduct = async (req, res) => {
+const getProductOffer = async (req, res) => {
+  const { offerId } = req.params;
+  console.log(offerId);
   try {
-    const { tytul, cena, ilosc, opis, zdjecia, wybranyProdukt } = req.body;
     const accessToken = await getValidToken();
+    const response = await axios.get(`${process.env.ALLEGRO_API_URL}/sale/products/${offerId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.allegro.public.v1+json'
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    res.status(error.response?.status || 500).json({ message: error.message });
+  }
+};
 
-    // Upload images to Allegro
-    const uploadedImages = await Promise.all(zdjecia.map(async url => {
-      const uploadedImage = await uploadImage(url, accessToken);
-      return { url: uploadedImage.location };
-    }));
+const createProductOffer = async (req, res) => {
+  try {
+    const requiredFields = ['name', 'category', 'parameters', 'sellingMode', 'stock', 'description', 'images', 'delivery'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
 
-    const productData = {
-      name: tytul,
-      category: {
-        id: wybranyProdukt?.category?.id || '954b95b6-43cf-4104-8354-dea4d9b10ddf'
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Brak wymaganych pól',
+        missingFields
+      });
+    }
+
+    const accessToken = await getValidToken();
+    const allegroProduct = {
+      name: req.body.name,
+      category: { id: req.body.category.id },
+      parameters: req.body.parameters,
+      sellingMode: {
+        format: req.body.sellingMode.format || 'BUY_NOW',
+        price: {
+          amount: req.body.sellingMode.price.amount,
+          currency: req.body.sellingMode.price.currency || 'PLN'
+        }
       },
-      parameters: wybranyProdukt?.parameters || [],
-      images: uploadedImages,
+      stock: { available: req.body.stock.available },
       description: {
         sections: [{
           items: [{
             type: 'TEXT',
-            content: opis
+            content: req.body.description.sections[0]?.items[0]?.content || ''
           }]
         }]
       },
-      stock: {
-        available: parseInt(ilosc)
+      images: req.body.images.map(img => ({
+        url: img.url.startsWith('http') ? img.url : `https://${img.url}`
+      })).filter(img => img.url),
+      delivery: {
+        shippingRates: {
+          id: req.body.delivery.shippingRates.id
+        }
       }
     };
 
-    // Add sellingMode only if price is provided
-    if (cena) {
-      productData.sellingMode = {
-        format: 'BUY_NOW',
-        price: {
-          amount: parseFloat(cena),
-          currency: 'PLN'
-        }
-      };
-    }
-
-    const response = await axios.post(`${process.env.ALLEGRO_API_URL}/sale/offers`, productData, {
+    console.log('Wysyłanie produktu do Allegro:', allegroProduct);
+    const response = await axios.post(`${process.env.ALLEGRO_API_URL}/sale/product-offers`, allegroProduct, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/vnd.allegro.public.v1+json',
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/vnd.allegro.public.v1+json',
         'Content-Type': 'application/vnd.allegro.public.v1+json'
       }
     });
-
-    res.status(201).json(response.data);
+    res.json(response.data);
   } catch (error) {
-    console.error('Błąd tworzenia produktu:', error.response?.data || error.message);
+    console.error('Błąd Allegro API:', error.response?.data || error.message);
     res.status(error.response?.status || 500).json({ 
       error: error.response?.data?.message || 'Błąd serwera',
-      details: error.response?.data?.errors 
+      details: error.response?.data?.errors
     });
   }
 };
 
-module.exports = { searchProducts, createProduct, uploadImage };
+module.exports = { searchProducts, getProductOffer, createProductOffer };
