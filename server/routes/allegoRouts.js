@@ -1,33 +1,34 @@
 const express = require('express');
-const { searchProducts, getProductOffer, createProductOffer } = require('../controllers/allegroController');
-const { getAuthUrl, getAccessToken, checkAuthStatus } = require('../middleware/allegroAuth');
+const { 
+  searchProducts, 
+  getProductOffer, 
+  createProductOffer,
+  getAuthorizationUrl,
+  getTokenFromCode
+} = require('../controllers/allegroController');
 
 const router = express.Router();
 
-// Endpointy autoryzacji
+// Authentication endpoints (unchanged)
 router.get('/auth', (req, res) => {
-  res.redirect(getAuthUrl());
+  const authUrl = getAuthorizationUrl();
+  res.redirect(authUrl);
 });
-
-router.get('/auth/status', checkAuthStatus); // Zmieniona nazwa endpointu na /auth/status
 
 router.get('/auth/callback', async (req, res) => {
-  const { code } = req.query;
-  
-  if (!code) {
-    return res.status(400).send('Authorization code missing');
-  }
-
   try {
-    await getAccessToken(code);
-    res.redirect(process.env.FRONTEND_REDIRECT_URI || '/');
+    const { code } = req.query;
+    if (!code) {
+      return res.status(400).json({ error: 'Brak kodu autoryzacyjnego' });
+    }
+    const tokenData = await getTokenFromCode(code);
+    res.json({ success: true, token: tokenData.access_token });
   } catch (error) {
-    console.error('Error during callback:', error);
-    res.status(500).send('Authentication failed');
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Endpointy API
+// Modified routes - removed verifyToken middleware
 router.get('/search', searchProducts);
 router.get('/product-offers/:offerId', getProductOffer);
 router.post('/product-offers', createProductOffer);

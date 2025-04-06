@@ -1,10 +1,12 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   FaHome,
   FaUsers,
   FaCalendarAlt,
   FaBars,
   FaTimes,
+  FaCheckCircle,
+  FaPlug
 } from "react-icons/fa";
 import { Context } from "../../context/ContextProvider";
 import { useNavigate } from "react-router-dom";
@@ -13,11 +15,24 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
   const { setToken } = useContext(Context);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAllegroConnected, setIsAllegroConnected] = useState(false);
+
+  // Sprawdź połączenie z Allegro przy załadowaniu i zmianach
+  useEffect(() => {
+    const allegroToken = localStorage.getItem("allegro_token");
+    setIsAllegroConnected(!!allegroToken);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("allegro_token"); // Wyloguj też z Allegro
     setToken("");
+    setIsAllegroConnected(false);
     navigate("/");
+  };
+
+  const handleConnectAllegro = () => {
+    navigate("/allegro-auth"); // Przekieruj do autoryzacji Allegro
   };
 
   return (
@@ -43,6 +58,33 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
         </div>
 
         <ul className="flex-1 p-4 space-y-2">
+          {/* Status połączenia Allegro */}
+          <li
+            className={`flex items-center justify-between p-3 rounded-lg ${
+              isAllegroConnected ? "bg-green-900/30" : "bg-gray-700/50"
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              {isAllegroConnected ? (
+                <FaCheckCircle className="text-green-400" />
+              ) : (
+                <FaPlug className="text-gray-400" />
+              )}
+              <span className={isAllegroConnected ? "text-green-400" : "text-gray-400"}>
+                Allegro {isAllegroConnected ? "Połączono" : "Niepołączono"}
+              </span>
+            </div>
+            {!isAllegroConnected && (
+              <button
+                onClick={handleConnectAllegro}
+                className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-colors"
+              >
+                Połącz
+              </button>
+            )}
+          </li>
+
+          {/* Reszta menu */}
           {[
             { name: "Dodaj Produkt", icon: <FaHome /> },
             { name: "Wystaw Produkty", icon: <FaCalendarAlt /> },
