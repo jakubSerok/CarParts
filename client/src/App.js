@@ -10,7 +10,7 @@ function AppContent() {
   return (
   <ContextProvider>
     <Routes>        
-      <Route path="call-back" element={<AllegroCallback />} />
+      <Route path="allegro-callback" element={<AllegroCallback />} />
       <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
       <Route

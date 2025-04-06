@@ -55,7 +55,7 @@ const AddProduct = () => {
         params: { phrase: frazaWyszukiwania },
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
-        }
+      }
       });
       
       if (odpowiedz.data?.products) {
@@ -84,7 +84,9 @@ const AddProduct = () => {
     try {
 
       
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers/${produkt.id}`);
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers/${produkt.id}`,{headers: {
+        'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
+    }});
       const offerDetails = response.data;
       console.log(offerDetails);
       setWybranyProdukt(offerDetails);
@@ -227,7 +229,9 @@ const AddProduct = () => {
 
       console.log('Wysyłanie produktu:', formattedProduct);
       console.log('Endpoint:', `${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`);
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`, formattedProduct);
+      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`, formattedProduct,{headers: {
+        'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
+    }});
       console.log('Odpowiedź serwera:', response);
       console.log('Produkt wystawiony:', response.data);
       setStatusWysylki({

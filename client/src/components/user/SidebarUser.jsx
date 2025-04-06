@@ -6,18 +6,18 @@ import {
   FaBars,
   FaTimes,
   FaCheckCircle,
-  FaPlug
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import { Context } from "../../context/ContextProvider";
 import { useNavigate } from "react-router-dom";
 
 const SidebarUser = ({ setActiveComponent, activeComponent }) => {
-  const { setToken } = useContext(Context);
+  const { setToken, token,url } = useContext(Context);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isAllegroConnected, setIsAllegroConnected] = useState(false);
 
-  // Sprawdź połączenie z Allegro przy załadowaniu i zmianach
+  // Sprawdź, czy użytkownik jest już połączony z Allegro (np. token istnieje)
   useEffect(() => {
     const allegroToken = localStorage.getItem("allegro_token");
     setIsAllegroConnected(!!allegroToken);
@@ -25,14 +25,19 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("allegro_token"); // Wyloguj też z Allegro
     setToken("");
-    setIsAllegroConnected(false);
     navigate("/");
   };
 
-  const handleConnectAllegro = () => {
-    navigate("/allegro-auth"); // Przekieruj do autoryzacji Allegro
+  const handleAllegroAuth = () => {
+    if (isAllegroConnected) {
+      // Opcjonalnie: rozłącz z Allegro
+      localStorage.removeItem("allegro_token");
+      setIsAllegroConnected(false);
+    } else {
+      // Przekieruj do logowania przez Allegro
+      window.location.href = `${url}/api/allegro/auth`;
+    }
   };
 
   return (
@@ -58,33 +63,6 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
         </div>
 
         <ul className="flex-1 p-4 space-y-2">
-          {/* Status połączenia Allegro */}
-          <li
-            className={`flex items-center justify-between p-3 rounded-lg ${
-              isAllegroConnected ? "bg-green-900/30" : "bg-gray-700/50"
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              {isAllegroConnected ? (
-                <FaCheckCircle className="text-green-400" />
-              ) : (
-                <FaPlug className="text-gray-400" />
-              )}
-              <span className={isAllegroConnected ? "text-green-400" : "text-gray-400"}>
-                Allegro {isAllegroConnected ? "Połączono" : "Niepołączono"}
-              </span>
-            </div>
-            {!isAllegroConnected && (
-              <button
-                onClick={handleConnectAllegro}
-                className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded transition-colors"
-              >
-                Połącz
-              </button>
-            )}
-          </li>
-
-          {/* Reszta menu */}
           {[
             { name: "Dodaj Produkt", icon: <FaHome /> },
             { name: "Wystaw Produkty", icon: <FaCalendarAlt /> },
@@ -114,7 +92,27 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
           ))}
         </ul>
 
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 space-y-2 border-t border-gray-700">
+          <button
+            className={`w-full p-2 rounded-lg text-sm text-white transition-colors duration-200 flex items-center justify-center space-x-2 ${
+              isAllegroConnected
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-gray-600 hover:bg-gray-700"
+            }`}
+            onClick={handleAllegroAuth}
+          >
+            {isAllegroConnected ? (
+              <>
+                <FaCheckCircle />
+                <span>Połączono z Allegro</span>
+              </>
+            ) : (
+              <>
+                <FaExternalLinkAlt />
+                <span>Połącz z Allegro</span>
+              </>
+            )}
+          </button>
           <button
             className="w-full p-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm text-white transition-colors duration-200"
             onClick={handleLogout}

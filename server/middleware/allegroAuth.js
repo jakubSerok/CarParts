@@ -55,10 +55,7 @@ const getAuthorizationUrl = () => {
 // Wymiana kodu autoryzacyjnego na token dostępu
 const getTokenFromCode = async (code) => {
   // Blokada przed ponownym użyciem
-  if (usedCodes.has(code)) {
-    throw new Error('Kod autoryzacyjny już wykorzystany');
-  }
-  usedCodes.add(code);
+
 
   try {
     const authString = Buffer.from(`${process.env.ALLEGRO_CLIENT_ID}:${process.env.ALLEGRO_CLIENT_SECRET}`).toString('base64');
