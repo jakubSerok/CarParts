@@ -8,7 +8,8 @@ const AddProduct = () => {
   const [blad, setBlad] = useState(null);
   const [wybranyProdukt, setWybranyProdukt] = useState(null);
   const [edycja, setEdycja] = useState(false);
-  const [productDetails, setProductDetails] = useState({
+  const [productObject, setProductObject] = useState(null);
+    const [productDetails, setProductDetails] = useState({
     name: '',
     category: { id: '' },
     parameters: [],
@@ -87,12 +88,16 @@ const AddProduct = () => {
       const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers/${produkt.id}`,{headers: {
         'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
     }});
-      const offerDetails = response.data;
+    setProductObject(response.data);
+          const offerDetails = response.data;
       console.log(offerDetails);
       setWybranyProdukt(offerDetails);
       setProductDetails({
         name: offerDetails.name || '',
-        category: { id: offerDetails.category?.id || '' },
+        productId: offerDetails.id,
+        category: offerDetails.category
+          ? { ...offerDetails.category }
+          : { id: '' },
         parameters: offerDetails.parameters || [],
         sellingMode: {
           format: 'BUY_NOW',
@@ -192,48 +197,75 @@ const AddProduct = () => {
       setBlad('Nazwa i ilość są wymagane');
       return;
     }
-
+    if (!productDetails.sellingMode.price.amount || isNaN(productDetails.sellingMode.price.amount)) {
+      setBlad('Proszę podać poprawną cenę produktu');
+      return;
+    }
     setLadowanie(true);
     setBlad(null);
-
+  
     try {
-      const formattedProduct = {
+      // Aktualizacja productObject danymi z formularza
+      const updatedProduct = {
+        ...productObject, // Oryginalne dane z Allegro
         name: productDetails.name,
-        category: { id: productDetails.category.id },
+        category: productDetails.category,
+        product: { id: productDetails.productId },
+
         parameters: productDetails.parameters,
         sellingMode: {
           format: 'BUY_NOW',
           price: {
-            amount: productDetails.sellingMode.price.amount,
+            amount: productDetails.sellingMode.price.amount.toString(),
             currency: 'PLN'
           }
         },
-        stock: { available: productDetails.stock.available },
-        description: {
-          sections: [{
-            items: [{
-              type: 'TEXT',
-              content: productDetails.description.sections[0]?.items[0]?.content || ''
-            }]
-          }]
+        stock: { 
+          available: parseInt(productDetails.stock.available) || 1,
+          unit: "UNIT"
         },
+        description: productDetails.description,
         images: productDetails.images.map(img => ({
           url: img.url
         })),
         delivery: {
           shippingRates: {
-            id: productDetails.delivery.shippingRates.id
-          }
+            id: '144979ca-6bac-4f06-9842-1b3e181cf6e4' // Stałe ID
+          },
+          handlingTime: "PT24H"
+          
+        },
+        location: {
+          city: "Złotoryja",
+          countryCode: "PL",
+          postCode: "59-500",
+          province: "DOLNOSLASKIE"
+        },
+        afterSalesServices: {
+         
+          returnPolicy: { id: "396f4cea-bc91-4979-acdf-a2c391227f14" },
+         
+        },
+        publication: {
+          duration: "P30D",
+          startingAt: new Date().toISOString(),
+          status: 'INACTIVE',
+          republish: false
         }
       };
-
-      console.log('Wysyłanie produktu:', formattedProduct);
-      console.log('Endpoint:', `${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`);
-      const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`, formattedProduct,{headers: {
-        'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
-    }});
+  
+      console.log('Wysyłanie produktu:', updatedProduct);
+      const response = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/api/allegro/product-offers`, 
+        updatedProduct,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('allegro_token')}`
+          }
+        }
+      );
+      
       console.log('Odpowiedź serwera:', response);
-      console.log('Produkt wystawiony:', response.data);
       setStatusWysylki({
         sukces: true,
         wiadomosc: 'Produkt został pomyślnie wystawiony!'
