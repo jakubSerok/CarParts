@@ -208,11 +208,11 @@ const AddProduct = () => {
       // Aktualizacja productObject danymi z formularza
       const updatedProduct = {
         ...productObject, // Oryginalne dane z Allegro
-        name: productDetails.name,
-        category: productDetails.category,
-        product: { id: productDetails.productId },
+        // name: productDetails.name,
+        // category: productDetails.category,
+        // product: { id: productDetails.productId },
 
-        parameters: productDetails.parameters,
+        // parameters: productDetails.parameters,
         sellingMode: {
           format: 'BUY_NOW',
           price: {
@@ -225,9 +225,7 @@ const AddProduct = () => {
           unit: "UNIT"
         },
         description: productDetails.description,
-        images: productDetails.images.map(img => ({
-          url: img.url
-        })),
+        images: productDetails.images.map(img => img.url),
         delivery: {
           shippingRates: {
             id: '144979ca-6bac-4f06-9842-1b3e181cf6e4' // Stałe ID
@@ -241,17 +239,17 @@ const AddProduct = () => {
           postCode: "59-500",
           province: "DOLNOSLASKIE"
         },
-        afterSalesServices: {
+        // afterSalesServices: {
          
-          returnPolicy: { id: "396f4cea-bc91-4979-acdf-a2c391227f14" },
+        //   returnPolicy: { id: "396f4cea-bc91-4979-acdf-a2c391227f14" },
          
-        },
-        publication: {
-          duration: "P30D",
-          startingAt: new Date().toISOString(),
-          status: 'INACTIVE',
-          republish: false
-        }
+        // },
+        // publication: {
+        //   duration: "P30D",
+        //   startingAt: new Date().toISOString(),
+        //   status: 'INACTIVE',
+        //   republish: false
+        // }
       };
   
       console.log('Wysyłanie produktu:', updatedProduct);

@@ -1,8 +1,6 @@
 const axios = require('axios');
 const { getValidToken, getAuthorizationUrl, getTokenFromCode } = require('../middleware/allegroAuth');
 
-
-
 const searchProducts = async (req, res) => {
   try {
     const { phrase, limit = 20 } = req.query;
@@ -13,7 +11,7 @@ const searchProducts = async (req, res) => {
     }
 
     const response = await axios.get(`${process.env.ALLEGRO_API_URL}/sale/products`, {
-      params: {                
+      params: {
         phrase: phrase,
         limit: parseInt(limit),
         language: 'pl-PL'
@@ -27,9 +25,9 @@ const searchProducts = async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Błąd wyszukiwania produktu:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({ 
+    res.status(error.response?.status || 500).json({
       error: error.response?.data?.message || 'Błąd serwera',
-      details: error.response?.data?.errors 
+      details: error.response?.data?.errors
     });
   }
 };
@@ -50,94 +48,138 @@ const getProductOffer = async (req, res) => {
     res.status(error.response?.status || 500).json({ message: error.message });
   }
 };
+
+const stringifySafely = (obj) => {
+  return JSON.stringify(obj, (key, value) => {
+    if (['socket', 'req', 'res', '_headers'].includes(key)) return undefined;
+    return value;
+  });
+};
+
 const createProductOffer = async (req, res) => {
+  console.log('Data from req: ', req.body);
+
   try {
-    // Podstawowe wymagane pola
-    const requiredFields = ['name', 'category', 'sellingMode', 'stock', 'images'];
-    const missingFields = requiredFields.filter(field => !req.body[field]);
+    const { name, category, parameters, images, description, sellingMode, stock, location, language } = req.body;
 
-    if (missingFields.length > 0) {
-      return res.status(400).json({ 
-        error: 'Brak wymaganych pól',
-        missingFields
-      });
-    }
+    // List of unsupported properties in the request
+    const unsupportedProperties = [
+      'productSet.product.category.path',
+      'productSet.product.category.similar',
+      'productSet.product.parameters.options',
+      'productSet.product.trustedContent',
+      'hasProtectedBrand',
+      'sellingMode',
+      'stock',
+      'delivery',
+      'location',
+      'valuesLabels',
+      'unit',
+      'offerRequirements',
+      'description',
+      'publication',
+      'isDraft',
+      'aiCoCreatedContent',
+      'productSafety',
+    ];
 
-    const allegroToken = req.headers.authorization?.split(' ')[1]; // Get Allegro token from header
-    
-    // Validate and format images
-    const images = req.body.images.map(img => {
-      if (!img.url) {
-        throw new Error('Invalid image format. URL is required.');
-      }
-      const url = img.url.trim();
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        throw new Error('Image URL must start with http:// or https://');
-      }
-      return url;
-    });
+    // Function to recursively remove unsupported properties
+    const removeUnsupportedProperties = (obj, path = '') => {
+      for (let key in obj) {
+        const fullPath = path ? `${path}.${key}` : key;
 
-    // Podstawowa struktura oferty zgodna z dokumentacją Allegro
-    
-
-    try {
-      const response = await axios.post(`${process.env.ALLEGRO_API_URL}/sale/offers`,
-        {
-          ...req.body,
-          id: undefined, // Ensure id is not sent
-          language: 'pl-PL',
-          
-         
-          
-          
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${allegroToken}`,
-            'Accept': 'application/vnd.allegro.public.v1+json',
-            'Content-Type': 'application/vnd.allegro.public.v1+json'
-          }
+        if (unsupportedProperties.some(prop => fullPath.includes(prop))) {
+          delete obj[key];
+        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+          removeUnsupportedProperties(obj[key], fullPath);
         }
-      );
-      res.json(response.data);
-    } catch (error) {
-      console.error('Błąd tworzenia oferty:', error.response?.data || error.message);
-      res.status(error.response?.status || 500).json({ 
-        error: error.response?.data?.message || 'Błąd serwera',
-        details: error.response?.data?.errors 
+      }
+    };
+
+    const productData = {
+      "productSet": [
+        {
+          product: { ...req.body },
+          responsibleProducer: { ...req.body.productSafety.responsibleProducer[0] || NULL },
+        }
+      ],
+      "sellingMode": {
+        "format": sellingMode.format,
+        "price": {
+          "amount": sellingMode.price.amount,
+          "currency": sellingMode.price.currency
+        }
+      },
+      "description": description,
+      "language": language || "pl-PL"
+    };
+
+    removeUnsupportedProperties(productData);
+
+    console.log('Constructed product data:', productData); 
+
+    const allegroToken = req.headers.authorization?.split(' ')[1];
+    if (!allegroToken) {
+      return res.status(401).json({ error: 'Missing Allegro token' });
+    }
+
+    console.log('Wysyłanie do Allegro:', JSON.stringify(productData));
+
+    const response = await axios.post(
+      `${process.env.ALLEGRO_API_URL}/sale/product-offers`,
+      productData,
+      {
+        headers: {
+          'Authorization': `Bearer ${allegroToken}`,
+          'Accept': 'application/vnd.allegro.public.v1+json',
+          'Content-Type': 'application/vnd.allegro.public.v1+json'
+        }
+      }
+    );
+
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error('Błąd wystawiania produktu:', error.response?.data || error.message);
+
+    if (error.response?.data?.metadata) {
+      console.log('Error metadata:', JSON.stringify(error.response.data.metadata, null, 2));
+    } else {
+      console.log('Full error response:', JSON.stringify(error.response?.data, null, 2));
+    }
+
+    if (!res.headersSent) {
+      res.status(error.response?.status || 500).json({
+        error: error.response?.data?.message || 'Internal server error',
+        details: error.response?.data?.errors || error.message
       });
     }
-  } catch (error) {
-    const status = error.response?.status || 500;
-    const data = error.response?.data;
-    const errors = data?.errors || [];
-  
-    console.error('Pełny błąd Allegro API:', {
-      status,
-      data,
-      headers: error.response?.headers
-    });
-  
-    // Tworzenie mapy błędów z informacjami o ścieżkach
-    const errorDetails = errors.map(err => ({
-      code: err.code,
-      message: err.message,
-      path: err.path || 'Nieokreślona ścieżka'
-    }));
-    console.error('Bład:', {
-     errorDetails
-    });
-  
-    res.status(status).json({
-      error: data?.message || 'Błąd serwera',
-      details: errorDetails
-    });
   }
 };
 
-module.exports = { 
-  searchProducts, 
-  getProductOffer, 
+const uploadImageToAllegro = async (url, allegroToken) => {
+  try {
+    const response = await axios.post(
+      `${process.env.ALLEGRO_API_URL}/sale/images`,
+      { url },
+      {
+        headers: {
+          'Authorization': `Bearer ${allegroToken}`,
+          'Accept': 'application/vnd.allegro.public.v1+json',
+          'Content-Type': 'application/vnd.allegro.public.v1+json'
+        }
+      }
+    );
+    return response.data.url; // zwraca już gotowy URL Allegro
+  } catch (error) {
+    console.error(`Błąd podczas uploadu obrazu do Allegro (${url}):`, error.response?.data || error.message);
+    throw new Error('Nie udało się przesłać obrazu do Allegro');
+  }
+};
+
+
+module.exports = {
+  searchProducts,
+  getProductOffer,
   createProductOffer,
   getAuthorizationUrl,
   getTokenFromCode
