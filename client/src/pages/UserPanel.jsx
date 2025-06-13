@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import SidebarUser from "../components/user/SidebarUser";
+import ActiveOffersList from "../components/user/ActiveOffersList";
 import Test from "../components/user/Test";
 import AddProduct from "../components/user/AddProduct";
+import Chat from "../components/user/Chat";
 
 const UserPanel = () => {
   const [activeComponent, setActiveComponent] = useState("Profil");
@@ -13,8 +15,10 @@ const UserPanel = () => {
     switch (activeComponent) {
       case "Wystaw Produkty":
         return <AddProduct />;
-      case "Kalendarz":
-        return <Test />;
+      case "Lista":
+        return <ActiveOffersList />;
+      case "Wiadomości":
+        return <Chat />;
       case "Karnety":
         return <Test />;
       case "Treningi":

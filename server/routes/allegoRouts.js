@@ -3,9 +3,12 @@ const {
   searchProducts, 
   getProductOffer, 
   createProductOffer,
+  getActiveOffers,
   getAuthorizationUrl,
-  getTokenFromCode
+  getTokenFromCode,
+  updateOffer
 } = require('../controllers/allegroController');
+
 
 const router = express.Router();
 
@@ -32,5 +35,6 @@ router.get('/auth/callback', async (req, res) => {
 router.get('/search', searchProducts);
 router.get('/product-offers/:offerId', getProductOffer);
 router.post('/product-offers', createProductOffer);
-
+router.get('/offers/active', getActiveOffers);
+router.patch('/offers/:offerId', updateOffer);
 module.exports = router;

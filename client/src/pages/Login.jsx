@@ -2,9 +2,11 @@ import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Context } from '../context/ContextProvider';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const { setToken, url } = useContext(Context);
+  const { login: authLogin } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -19,8 +21,18 @@ const Login = () => {
         password
       });
       setToken(response.data.token);
+      
+      // Get user ID from JWT token
+      const tokenPayload = JSON.parse(atob(response.data.token.split('.')[1]));
+      const userId = tokenPayload._id;
+      
+      // Store in both contexts
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('userRole', response.data.role);
+      localStorage.setItem('userId', userId);
+      
+      // Update AuthContext
+      authLogin(response.data.token, response.data.role, userId);
 
       // Przekierowanie na podstawie roli
       if (response.data.role === 'admin') {

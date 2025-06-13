@@ -225,9 +225,8 @@ const AddProduct = () => {
           unit: "UNIT"
         },
         description: productDetails.description,
-        images: productDetails.images.map(img => ({
-          url: img.url
-        })),
+        // Convert image objects to simple string URLs as required by Allegro API
+        images: productDetails.images.map(img => img.url),
         delivery: {
           shippingRates: {
             id: '144979ca-6bac-4f06-9842-1b3e181cf6e4' // Stałe ID

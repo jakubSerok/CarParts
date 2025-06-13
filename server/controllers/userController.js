@@ -60,5 +60,48 @@ const login = async (req, res) => {
       res.json({ success: false, message: "Error" });
     }
   };
+// Get user profile
+const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
-module.exports = { register, login };
+// Authentication middleware
+const authenticate = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
+    const secretKey = process.env.JWT_SECRET;
+    if (!secretKey) {
+      throw new Error('Secret key is not defined');
+    }
+    
+    const decoded = jwt.verify(token, secretKey);
+    const user = await User.findById(decoded._id);
+    
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    req.user = user;
+    req.token = token;
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(401).json({ message: 'Authentication failed' });
+  }
+};
+
+module.exports = { register, login, getUserProfile, authenticate };

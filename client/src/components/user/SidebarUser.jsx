@@ -7,6 +7,7 @@ import {
   FaTimes,
   FaCheckCircle,
   FaExternalLinkAlt,
+  FaComments,
 } from "react-icons/fa";
 import { Context } from "../../context/ContextProvider";
 import { useNavigate } from "react-router-dom";
@@ -64,13 +65,10 @@ const SidebarUser = ({ setActiveComponent, activeComponent }) => {
 
         <ul className="flex-1 p-4 space-y-2">
           {[
-            { name: "Dodaj Produkt", icon: <FaHome /> },
             { name: "Wystaw Produkty", icon: <FaCalendarAlt /> },
-            { name: "Karnety", icon: <FaUsers /> },
-            { name: "Treningi", icon: <FaCalendarAlt /> },
-            { name: "Platności", icon: <FaCalendarAlt /> },
-            { name: "Dopobrania", icon: <FaCalendarAlt /> },
-            { name: "Linki", icon: <FaCalendarAlt /> },
+            { name: "Lista", icon: <FaUsers /> },
+            { name: "Wiadomości", icon: <FaComments /> },
+            
           ].map((item) => (
             <li
               key={item.name}
