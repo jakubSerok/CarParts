@@ -9,7 +9,8 @@ const AddProduct = () => {
   const [wybranyProdukt, setWybranyProdukt] = useState(null);
   const [edycja, setEdycja] = useState(false);
   const [productObject, setProductObject] = useState(null);
-    const [productDetails, setProductDetails] = useState({
+  const [selectedParams, setSelectedParams] = useState([]); // indexes of selected parameters
+  const [productDetails, setProductDetails] = useState({
     name: '',
     category: { id: '' },
     parameters: [],
@@ -108,6 +109,24 @@ const AddProduct = () => {
         images: offerDetails.images || [],
         delivery: { shippingRates: { id: offerDetails.delivery?.shippingRates?.id || '' } }
       });
+      // Default: select all parameters
+      setSelectedParams(offerDetails.parameters ? offerDetails.parameters.map((_, i) => i) : []);
+      // Set editable description from Allegro if available
+      const origDesc = (() => {
+        if (!offerDetails.description || !offerDetails.description.sections) return '';
+        return offerDetails.description.sections
+          .map(section =>
+            section.items
+              .filter(item => item.type === 'TEXT')
+              .map(item => item.content)
+              .join('')
+          )
+          .join('');
+      })();
+      setProductDetails(prev => ({
+        ...prev,
+        description: { sections: [{ items: [{ type: 'TEXT', content: origDesc }] }] }
+      }));
       setFrazaWyszukiwania('');
       setEdycja(true);
       setWynikiWyszukiwania([]);
@@ -205,13 +224,15 @@ const AddProduct = () => {
     setBlad(null);
 
     try {
-      // Przygotuj opis z parametrami na początku
+      // Przygotuj opis z wybranymi parametrami na początku
       const params = productDetails.parameters || [];
-      const lastTwo = params.slice(-2);
+      // Użyj tylko wybranych parametrów
+      const selected = selectedParams.length ? selectedParams : params.map((_, i) => i);
+      const paramsToShow = selected.map(i => params[i]).filter(Boolean);
       // Funkcja czyszcząca HTML z <br/>
 const cleanHtml = (html) => html.replace(/<br\s*\/?\>/gi, '');
-const paramsHtml = lastTwo.map(p => `<p><b>${p.name || p.parameterName || ''}: </b>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
-      // Pobierz oryginalny opis
+const paramsHtml = paramsToShow.map(p => `<p><b>${p.name || p.parameterName || ''}: </b>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
+      // Użyj customDesc jeśli jest, w przeciwnym razie domyślny opis
       const origDesc = parseDescription(productDetails.description);
       // Połącz parametry i opis i wyczyść z <br/>
       const finalDescHtml = cleanHtml(paramsHtml + (origDesc ? `<p></p>${origDesc}` : ''));
@@ -378,6 +399,65 @@ const paramsHtml = lastTwo.map(p => `<p><b>${p.name || p.parameterName || ''}: <
         </div>
       )}
 
+      {/* Wybór parametrów do opisu */}
+      {edycja && productDetails.parameters && productDetails.parameters.length > 0 && (
+        <div className="mb-6 border border-gray-200 rounded-lg p-4">
+          <h3 className="font-medium mb-2">Zaznacz parametry do opisu:</h3>
+          <div className="flex flex-wrap gap-3">
+            {productDetails.parameters.map((param, idx) => (
+              <label key={idx} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={selectedParams.includes(idx)}
+                  onChange={() => {
+                    setSelectedParams(prev => prev.includes(idx)
+                      ? prev.filter(i => i !== idx)
+                      : [...prev, idx]);
+                  }}
+                />
+                <span>{param.name || param.parameterName}</span>
+              </label>
+            ))}
+          </div>
+          {/* Edytowalny opis produktu z parametrami jako blok nieedytowalny (prepended) */}
+          <div className="mt-6">
+            <h4 className="font-medium mb-1">Edytuj opis produktu:</h4>
+            {(() => {
+              const params = productDetails.parameters || [];
+              const selected = selectedParams.length ? selectedParams : params.map((_, i) => i);
+              const paramsToShow = selected.map(i => params[i]).filter(Boolean);
+              const cleanHtml = (html) => html.replace(/<br\s*\/?\>/gi, '');
+              const paramsHtmlBlocks = paramsToShow.map(p => `<p><b>${p.name || p.parameterName}: </b>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
+              let userDesc = '';
+              const fullDesc = productDetails.description?.sections?.[0]?.items?.[0]?.content || '';
+              if (paramsHtmlBlocks && fullDesc.startsWith(paramsHtmlBlocks)) {
+                userDesc = fullDesc.slice(paramsHtmlBlocks.length);
+              } else {
+                userDesc = fullDesc;
+              }
+              const value = paramsHtmlBlocks + userDesc;
+              return (
+                <textarea
+                  name="description"
+                  value={value}
+                  onChange={e => {
+                    let newValue = e.target.value;
+                    if (paramsHtmlBlocks && newValue.startsWith(paramsHtmlBlocks)) {
+                      newValue = newValue.slice(paramsHtmlBlocks.length);
+                    }
+                    setProductDetails(prev => ({
+                      ...prev,
+                      description: { sections: [{ items: [{ type: 'TEXT', content: paramsHtmlBlocks + newValue }] }] }
+                    }));
+                  }}
+                  rows="8"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              );
+            })()}
+          </div>
+        </div>
+      )}
       {/* Wyniki wyszukiwania */}
       {!edycja && wynikiWyszukiwania.length > 0 && (
         <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
