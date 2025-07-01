@@ -203,9 +203,38 @@ const AddProduct = () => {
     }
     setLadowanie(true);
     setBlad(null);
-  
+
     try {
-      // Aktualizacja productObject danymi z formularza
+      // Przygotuj opis z parametrami na początku
+      const params = productDetails.parameters || [];
+      const lastTwo = params.slice(-2);
+      // Funkcja czyszcząca HTML z <br/>
+const cleanHtml = (html) => html.replace(/<br\s*\/?\>/gi, '');
+const paramsHtml = lastTwo.map(p => `<p><b>${p.name || p.parameterName || ''}: </b>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
+      // Pobierz oryginalny opis
+      const origDesc = parseDescription(productDetails.description);
+      // Połącz parametry i opis i wyczyść z <br/>
+      const finalDescHtml = cleanHtml(paramsHtml + (origDesc ? `<p></p>${origDesc}` : ''));
+      // Budujemy strukturę opisu wymaganą przez Allegro (TEXT + IMAGE)
+      const textSection = {
+        items: [
+          {
+            type: 'TEXT',
+            content: finalDescHtml
+          }
+        ]
+      };
+      const imageSection = {
+        items: productDetails.images
+          .filter(img => img.url)
+          .map(img => ({ type: 'IMAGE', url: img.url }))
+      };
+      // Dodaj sekcję obrazów tylko jeśli są obrazy
+      const sections = [textSection];
+      if (imageSection.items.length > 0) sections.push(imageSection);
+      const allegroDescription = { sections };
+
+      // Zbuduj strukturę jakiej oczekuje backend/Allegro
       const updatedProduct = {
         ...productObject, // Oryginalne dane z Allegro
         name: productDetails.name,
@@ -224,7 +253,7 @@ const AddProduct = () => {
           available: parseInt(productDetails.stock.available) || 1,
           unit: "UNIT"
         },
-        description: productDetails.description,
+        description: allegroDescription,
         // Convert image objects to simple string URLs as required by Allegro API
         images: productDetails.images.map(img => img.url),
         delivery: {
@@ -448,20 +477,44 @@ const AddProduct = () => {
                   {edytujOpis ? 'Zobacz podgląd' : 'Edytuj opis'}
                 </button>
               </div>
-              {edytujOpis ? (
-                <textarea
-                  name="description"
-                  value={parseDescription(productDetails.description)}
-                  onChange={(e) => setProductDetails(prev => ({ ...prev, description: { sections: [{ items: [{ type: 'TEXT', content: e.target.value }] }] } }))}
-                  rows="8"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              ) : (
-                <div
-                  className="prose max-w-none p-4 border border-gray-300 rounded-md"
-                  dangerouslySetInnerHTML={{ __html: parseDescription(productDetails.description) }}
-                />
-              )}
+              {(() => {
+  // Get last two parameters
+  const params = productDetails.parameters || [];
+  const lastTwo = params.slice(-2);
+    // <p> tags for both textarea and preview
+  const paramsHtmlBlocks = lastTwo.map(p => `<p><b>${p.name || p.parameterName || ''}</b><br/>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
+  // For textarea: prepend as HTML string (so user sees <p>...)</p>
+  if (edytujOpis) {
+    const orig = parseDescription(productDetails.description);
+    const value = paramsHtmlBlocks + (orig ? orig : '');
+    return (
+      <textarea
+        name="description"
+        value={value}
+        onChange={e => {
+          // Remove the prepended params before saving back (HTML block)
+          let newValue = e.target.value;
+          if (paramsHtmlBlocks && newValue.startsWith(paramsHtmlBlocks)) {
+            newValue = newValue.slice(paramsHtmlBlocks.length);
+          }
+          setProductDetails(prev => ({ ...prev, description: { sections: [{ items: [{ type: 'TEXT', content: newValue }] }] } }));
+        }}
+        rows="8"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+      />
+    );
+  } else {
+    // For preview: prepend to html
+    const orig = parseDescription(productDetails.description);
+    const html = paramsHtmlBlocks + (orig ? orig : '');
+    return (
+      <div
+        className="prose max-w-none p-4 border border-gray-300 rounded-md"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+})()}
             </div>
 
             <div>
