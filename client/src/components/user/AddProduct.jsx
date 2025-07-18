@@ -558,11 +558,12 @@ const paramsHtml = paramsToShow.map(p => `<p><b>${p.name || p.parameterName || '
                 </button>
               </div>
               {(() => {
-  // Get last two parameters
+  // Get all selected parameters
   const params = productDetails.parameters || [];
-  const lastTwo = params.slice(-2);
-    // <p> tags for both textarea and preview
-  const paramsHtmlBlocks = lastTwo.map(p => `<p><b>${p.name || p.parameterName || ''}</b><br/>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
+  const selected = selectedParams.length ? selectedParams : params.map((_, i) => i);
+  const paramsToShow = selected.map(i => params[i]).filter(Boolean);
+  // <p> tags for both textarea and preview
+  const paramsHtmlBlocks = paramsToShow.map(p => `<p><b>${p.name || p.parameterName || ''}</b><br/>${(Array.isArray(p.values) ? p.values.join(', ') : p.value || '')}</p>`).join('');
   // For textarea: prepend as HTML string (so user sees <p>...)</p>
   if (edytujOpis) {
     const orig = parseDescription(productDetails.description);
